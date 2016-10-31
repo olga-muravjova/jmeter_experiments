@@ -2,3 +2,9 @@
 *.iml
 *.log
 useless
+
+*.class
+*.jar
+*.war
+*.ear
+target/

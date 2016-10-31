@@ -1,12 +1,13 @@
 package jmeter;
 
-import mock.servers.Server;
+import mock.nodes.NodesManager;
 
 public class App
 {
     public static void main( String[] args ) throws Exception {
-//        Server.runServer();
+        NodesManager nodesManager = new NodesManager();
+        nodesManager.startNodes();
         JMeterRunner.runJmeter();
-//        Server.stopServer();
+        nodesManager.stopNodes();
     }
 }
