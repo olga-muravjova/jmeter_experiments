@@ -11,23 +11,26 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.net.URL;
 import java.util.Arrays;
+import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+
+import static java.lang.Math.abs;
 
 public class TransactionSampler extends AbstractSampler implements Serializable {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(TransactionSampler.class);
     private String senderNodeHost = "localhost";
     private int senderNodePort = 8090;
-    private String recieverNodeHost = "localhost";
-    private String recieverNodePort = ":8091";
-    private int curTransactionId = 0;
+//    private String recieverNodeHost = "localhost";
+//    private String recieverNodePort = ":8091";
+//    private int curTransactionId = 0;
+    private Random random = new Random();
 
 
     @Override
     public SampleResult sample(Entry entry) {
-        curTransactionId++;
         SampleResult sampleResult = new SampleResult();
         sampleResult.sampleStart();
         try {
@@ -46,7 +49,7 @@ public class TransactionSampler extends AbstractSampler implements Serializable 
     }
 
     private String transactionTest() throws IOException {
-        int transactionId = curTransactionId;
+        int transactionId = abs(random.nextInt());
         String urlString = "http://" + senderNodeHost + ":" + senderNodePort + "/generate" + "?" + "id=" + transactionId;
         if (Utils.sendHTTPGet(new URL(urlString)) >= 400) {
             return "Sender node exception";
@@ -61,6 +64,7 @@ public class TransactionSampler extends AbstractSampler implements Serializable 
                     if (responseCode >= 400) {
                         System.out.println("On Node " + p + " transaction absent, repeat");
                     }
+                    Thread.sleep(10);
                 } while(responseCode >= 400);
                 System.out.println("On Node " + p + " transaction added");
             } catch (Exception e) {

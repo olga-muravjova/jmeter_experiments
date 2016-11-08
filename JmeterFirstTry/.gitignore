@@ -2,6 +2,8 @@
 *.iml
 *.log
 useless
+result
+*.jtl
 
 *.class
 *.jar
