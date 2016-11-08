@@ -22,21 +22,27 @@ public class JMeterRunner {
     private final static String logFile = System.getProperty("user.dir") + slash + "result.jtl";
     private final static String reportResultDir = System.getProperty("user.dir") + slash + "result";
     private final static int numberOfNodes = 4;
-    private final static String host= "localhost";
+    private final static String host = "localhost";//"46.101.106.86";
+    private final static int numberOfThreads = 10;
+    private final static int numberOfLoops = 250;
 
     public static void run() throws Exception {
         setJMeterSettings();
-        for (int i = 70; i <= 70; i += 10) {
-            configureRunJmeter(i);
-        }
+        //creating or cleaning result dir
         File file = new File(reportResultDir);
         if (!file.exists()) {
             new File(reportResultDir).mkdir();
         }
         FileUtils.cleanDirectory(file);
-
         JMeterUtils.setProperty("jmeter.reportgenerator.exporter.html.property.output_dir", reportResultDir);
+        JMeterUtils.setProperty("jmeter.reportgenerator.overall_granularity", "600");
 
+        //cleaning logfile
+        File logfile = new File(logFile);
+        if (logfile.exists()) {
+            logfile.delete();
+        }
+        configureRunJmeter();
         ReportGenerator reportGenerator = new ReportGenerator(logFile, null);
         reportGenerator.generate();
     }
@@ -62,18 +68,16 @@ public class JMeterRunner {
     }
 
 
-    private static void generateTransactionThreadGroup(String host, int port, int numberOfNodes,
-                                                       int numberOfThreads, String threadGroupName, HashTree testPlanTree) {
+    private static void generateTransactionThreadGroup(int port, String threadGroupName, HashTree testPlanTree) {
         // my custom sampler
         TransactionSampler transactionSampler = new TransactionSampler();
         transactionSampler.setSenderPort(port);
-        transactionSampler.setSenderHost(host);
+        transactionSampler.setHost(host);
         transactionSampler.setNumberOfNodes(numberOfNodes);
-        transactionSampler.setName("mySampler");
 
         // Loop Controller
         LoopController loopCtrl = new LoopController();
-        loopCtrl.setLoops(1);
+        loopCtrl.setLoops(numberOfLoops);
         loopCtrl.setFirst(true);
         loopCtrl.addTestElement(transactionSampler);
         loopCtrl.initialize();
@@ -88,7 +92,7 @@ public class JMeterRunner {
         testPlanTree.add(testPlanTree.getArray()[0], threadGroup).add(transactionSampler);
     }
 
-    private static void configureRunJmeter(int numberOfThreads) throws Exception {
+    private static void configureRunJmeter() throws Exception {
 
         StandardJMeterEngine jm = new StandardJMeterEngine();
 
@@ -98,7 +102,7 @@ public class JMeterRunner {
         testPlanTree.add(testPlan);
 
         for (Integer nodePort : new Integer[]{8090, 8091, 8092, 8093}) {
-            generateTransactionThreadGroup(host, nodePort, numberOfNodes, numberOfThreads, "th" + nodePort.toString(), testPlanTree);
+            generateTransactionThreadGroup(nodePort,  "th" + nodePort.toString(), testPlanTree);
         }
 
         Summariser summer = null;

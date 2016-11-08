@@ -1,6 +1,5 @@
 package jmeter;
 
-import mock.nodes.NodesManager;
 import mock.nodes.Utils;
 import org.apache.jmeter.samplers.AbstractSampler;
 import org.apache.jmeter.samplers.Entry;
@@ -11,7 +10,9 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.Serializable;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -22,10 +23,8 @@ import static java.lang.Math.abs;
 public class TransactionSampler extends AbstractSampler implements Serializable {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(TransactionSampler.class);
-//    private String senderHost;
-//    private int senderPort;
     private final static String SENDER_PORT = "TransactionSampler.senderPort";
-    private final static String SENDER_HOST = "TransactionSampler.senderHost";
+    private final static String HOST = "TransactionSampler.host";
     private final static String NUMBER_OF_NODES = "TransactionSampler.numberOfNodes";
     private Random random = new Random();
 
@@ -41,20 +40,16 @@ public class TransactionSampler extends AbstractSampler implements Serializable 
         this.setProperty(SENDER_PORT, value);
     }
 
-    public void setSenderHost(String host) {
-        this.setProperty(SENDER_HOST, host);
+    public void setHost(String host) {
+        this.setProperty(HOST, host);
     }
 
-    public String getSenderHost() {
-        return this.getPropertyAsString(SENDER_HOST);
+    public String getHost() {
+        return this.getPropertyAsString(HOST);
     }
 
     public int getSenderPort() {
         return this.getPropertyAsInt(SENDER_PORT);
-    }
-
-    public void setName(String name) {
-        this.setProperty("TransactionSampler.name", name);
     }
 
     @Override
@@ -64,6 +59,7 @@ public class TransactionSampler extends AbstractSampler implements Serializable 
         try {
             String message = transactionTest();
             sampleResult.sampleEnd();
+            sampleResult.setSampleLabel("Transaction sampler");
             sampleResult.setSuccessful(Boolean.TRUE);
             sampleResult.setResponseCodeOK();
             sampleResult.setResponseMessage(message);
@@ -78,19 +74,17 @@ public class TransactionSampler extends AbstractSampler implements Serializable 
 
     private String transactionTest() throws IOException {
         int senderNodePort = this.getSenderPort();
-        String senderNodeHost = this.getSenderHost();
+        String host = this.getHost();
         int numberOfNodes = this.getNumberOfNodes();
         int transactionId = abs(random.nextInt());
-        String urlString = "http://" + senderNodeHost + ":" + senderNodePort + "/generate" + "?" + "id=" + transactionId;
 
-        if (Utils.sendHTTPGet(new URL(urlString)) >= 400) {
+        if (Utils.sendHTTPGet(new URL("http", host, senderNodePort, "/generate" + "?" + "id=" + transactionId)) >= 400) {
             return "Sender node exception";
         }
-        NodesManager nodesManager = new NodesManager();
-        ExecutorService executorService = Executors.newFixedThreadPool(numberOfNodes);
-        nodesManager.getOtherNodePorts(senderNodePort).subList(0, (numberOfNodes-1)).forEach(p -> executorService.submit(() -> {
+        ExecutorService executorService = Executors.newFixedThreadPool(numberOfNodes - 1);
+        getAllOtherPorts(senderNodePort).forEach(p -> executorService.submit(() -> {
             try {
-                URL url = new URL("http", "localhost", p, "/check" + "?" + "id=" + transactionId);
+                URL url = new URL("http", host, p, "/check" + "?" + "id=" + transactionId);
                 int responseCode;
                 do {
                     responseCode = Utils.sendHTTPGet(url);
@@ -98,7 +92,7 @@ public class TransactionSampler extends AbstractSampler implements Serializable 
                         System.out.println("On Node " + p + " transaction absent, repeat");
                     }
                     Thread.sleep(10);
-                } while(responseCode >= 400);
+                } while (responseCode >= 400);
                 System.out.println("On Node " + p + " transaction added");
             } catch (Exception e) {
                 e.printStackTrace();
@@ -113,5 +107,17 @@ public class TransactionSampler extends AbstractSampler implements Serializable 
             throw new RuntimeException(e);
         }
         return "Success";
+    }
+
+    private List<Integer> getAllOtherPorts(int port) {
+        List<Integer> ports = Arrays.asList(8090, 8091, 8092, 8093);
+        List<Integer> otherPorts = new ArrayList<>();
+        for (Integer port1 : ports) {
+            if (port1.equals(port)) {
+                continue;
+            }
+            otherPorts.add(port1);
+        }
+        return otherPorts;
     }
 }
