@@ -1,5 +1,6 @@
 package jmeter;
 
+import mock.nodes.NodesManager;
 import mock.nodes.Utils;
 import org.apache.jmeter.samplers.AbstractSampler;
 import org.apache.jmeter.samplers.Entry;
@@ -21,13 +22,40 @@ import static java.lang.Math.abs;
 public class TransactionSampler extends AbstractSampler implements Serializable {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(TransactionSampler.class);
-    private String senderNodeHost = "localhost";
-    private int senderNodePort = 8090;
-//    private String recieverNodeHost = "localhost";
-//    private String recieverNodePort = ":8091";
-//    private int curTransactionId = 0;
+//    private String senderHost;
+//    private int senderPort;
+    private final static String SENDER_PORT = "TransactionSampler.senderPort";
+    private final static String SENDER_HOST = "TransactionSampler.senderHost";
+    private final static String NUMBER_OF_NODES = "TransactionSampler.numberOfNodes";
     private Random random = new Random();
 
+    public void setNumberOfNodes(int value) {
+        this.setProperty(NUMBER_OF_NODES, value);
+    }
+
+    public int getNumberOfNodes() {
+        return this.getPropertyAsInt(NUMBER_OF_NODES);
+    }
+
+    public void setSenderPort(int value) {
+        this.setProperty(SENDER_PORT, value);
+    }
+
+    public void setSenderHost(String host) {
+        this.setProperty(SENDER_HOST, host);
+    }
+
+    public String getSenderHost() {
+        return this.getPropertyAsString(SENDER_HOST);
+    }
+
+    public int getSenderPort() {
+        return this.getPropertyAsInt(SENDER_PORT);
+    }
+
+    public void setName(String name) {
+        this.setProperty("TransactionSampler.name", name);
+    }
 
     @Override
     public SampleResult sample(Entry entry) {
@@ -49,13 +77,18 @@ public class TransactionSampler extends AbstractSampler implements Serializable 
     }
 
     private String transactionTest() throws IOException {
+        int senderNodePort = this.getSenderPort();
+        String senderNodeHost = this.getSenderHost();
+        int numberOfNodes = this.getNumberOfNodes();
         int transactionId = abs(random.nextInt());
         String urlString = "http://" + senderNodeHost + ":" + senderNodePort + "/generate" + "?" + "id=" + transactionId;
+
         if (Utils.sendHTTPGet(new URL(urlString)) >= 400) {
             return "Sender node exception";
         }
-        ExecutorService executorService = Executors.newFixedThreadPool(4);
-        Arrays.asList(8091, 8092, 8093).forEach(p -> executorService.submit(() -> {
+        NodesManager nodesManager = new NodesManager();
+        ExecutorService executorService = Executors.newFixedThreadPool(numberOfNodes);
+        nodesManager.getOtherNodePorts(senderNodePort).subList(0, (numberOfNodes-1)).forEach(p -> executorService.submit(() -> {
             try {
                 URL url = new URL("http", "localhost", p, "/check" + "?" + "id=" + transactionId);
                 int responseCode;
